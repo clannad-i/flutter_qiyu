@@ -4,6 +4,11 @@
 #import "UIBarButtonItem+blocks.h"
 
 @interface FlutterQiyuPlugin () <QYConversationManagerDelegate>
+@property (nonatomic, strong)NSString * backButton;
+@property (nonatomic, strong)UIColor * tintColor;
+@property (nonatomic, strong)UIColor * barTintColor;
+
+
 @end
 
 @implementation FlutterQiyuPlugin
@@ -15,8 +20,10 @@
     FlutterQiyuPlugin* instance = [[FlutterQiyuPlugin alloc] initWithViewController:viewController];
     [registrar addMethodCallDelegate:instance channel:channel];
     [registrar addApplicationDelegate:instance];
+//    [registrar registerViewFactory:[[QiYuFlutterPlatformViewFactory alloc] init] withId:@"QiYuFlutterPlatformView"];
     
     instance.channel = channel;
+    
 
     [[[QYSDK sharedSDK] conversationManager] setDelegate:instance];
     [[QYSDK sharedSDK] registerPushMessageNotification:^(QYPushMessage *message) {
@@ -29,6 +36,7 @@
     if (self) {
         self.viewController = viewController;
     }
+    
     return self;
 }
 
@@ -58,6 +66,9 @@
         result([NSNumber numberWithBool:YES]);
     } else if ([@"cleanCache" isEqualToString:call.method]) {
         [self cleanCache];
+        result([NSNumber numberWithBool:YES]);
+    } else if ([@"setLanguage" isEqualToString:call.method]) {
+        [self setLanguage:(NSNumber *)call.arguments];
         result([NSNumber numberWithBool:YES]);
     } else {
         result(FlutterMethodNotImplemented);
@@ -151,20 +162,93 @@
         sessionVC.commonQuestionTemplateId = [[paramDict objectForKey:@"faqTemplateId"] intValue];
     }
 
-    [sessionVC.navigationItem setLeftBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:@"返回" style:UIBarButtonItemStylePlain actionHandler:^{
+    
+   
+    
+//    [sessionVC.navigationItem setLeftBarButtonItem: [[UIBarButtonItem alloc] initWithTitle:@"Back" style:(UIBarButtonItemStylePlain) actionHandler:^{
+//        [self.viewController dismissViewControllerAnimated:true completion:nil];
+//
+//    }]];
+    
+    [sessionVC.navigationItem setLeftBarButtonItem: [[UIBarButtonItem alloc] initWithImage:[[UIImage imageNamed:@"back"] imageWithRenderingMode:(UIImageRenderingModeAlwaysOriginal)]  style:(UIBarButtonItemStylePlain) actionHandler:^{
         [self.viewController dismissViewControllerAnimated:true completion:nil];
+
     }]];
+    
+    
+
 
     UINavigationController *rootNavigationController = [[UINavigationController alloc] initWithRootViewController:sessionVC];
+    
+    UINavigationBar * bar = [rootNavigationController navigationBar];
+    bar.translucent = true;
+    [bar setBackgroundColor:self.barTintColor];
+//    [bar setTintColor:self.tintColor];
+    [bar setShadowImage:[[UIImage alloc] init]];
+    [bar setTitleTextAttributes:@{NSForegroundColorAttributeName:[UIColor redColor]}];
+
+    
+    sessionVC.view.backgroundColor = self.barTintColor;
+    
+    if (@available(iOS 13.0, *)) {
+        [[bar scrollEdgeAppearance] setBackgroundColor:self.barTintColor];
+        [[bar scrollEdgeAppearance] setTitleTextAttributes:@{NSForegroundColorAttributeName:[self tintColor]}];
+        
+        [[bar standardAppearance] setBackgroundColor:self.barTintColor];
+        [[bar standardAppearance] setTitleTextAttributes:@{NSForegroundColorAttributeName:[self tintColor]}];
+
+        [bar.compactAppearance setBackgroundColor:self.barTintColor];
+        if (@available(iOS 15.0, *)) {
+            [bar.compactScrollEdgeAppearance setBackgroundColor:self.barTintColor];
+        } else {
+            // Fallback on earlier versions
+        }
+
+    } else {
+        // Fallback on earlier versions
+    }
+    
+
     [rootNavigationController setNavigationBarHidden:YES];
     rootNavigationController.modalPresentationStyle = UIModalPresentationFullScreen;
+    
+    [self.viewController presentViewController:rootNavigationController animated:YES completion:^(){
+    }];
+}
+-(void)handleClickBack{
+    [self.viewController dismissViewControllerAnimated:true completion:nil];
 
-    [self.viewController presentViewController:rootNavigationController animated:YES completion:nil];
 }
 
 - (void)setCustomUIConfig:(NSDictionary *)options
 {
     NSDictionary *paramDict = options;
+//    [[[QYSDK sharedSDK] customUIConfig] restoreToDefault];
+    if ([paramDict objectForKey:@"tintColor"]) {
+        self.tintColor =[self colorFromHexString:[paramDict objectForKey:@"tintColor"]];
+    }
+    if ([paramDict objectForKey:@"rightItemStyleGrayOrWhite"]) {
+        [[QYSDK sharedSDK] customUIConfig].rightItemStyleGrayOrWhite =   [[paramDict objectForKey:@"rightItemStyleGrayOrWhite"] boolValue];
+    }
+    
+    
+    
+    
+    if ([paramDict objectForKey:@"barTintColor"]) {
+        self.barTintColor =[self colorFromHexString:[paramDict objectForKey:@"barTintColor"]];
+    }
+    
+    
+    if ([paramDict objectForKey:@"backButton"]) {
+        self.backButton =[paramDict objectForKey:@"backButton"];
+    }
+    
+    
+    
+    if ([paramDict objectForKey:@"themeColor"]) {
+//        [[QYSDK sharedSDK] customUIConfig].themeColor = [UIColor yellowColor];
+        //[self colorFromHexString:[paramDict objectForKey:@"themeColor"]];
+    }
     if ([paramDict objectForKey:@"sessionTipTextColor"]) {
         [[QYSDK sharedSDK] customUIConfig].sessionTipTextColor = [self colorFromHexString:[paramDict objectForKey:@"sessionTipTextColor"]];
     }
@@ -319,9 +403,12 @@
 
 - (UIImage*)getResourceImage:(NSString*)imageFilePath
 {
+   
+    
+
     NSString *localImagePath = [imageFilePath substringFromIndex:1];
     NSString *bundlePath = [NSBundle mainBundle].bundlePath;
-    bundlePath = [[bundlePath stringByAppendingPathComponent:@"assets"] stringByAppendingPathComponent:localImagePath];
+    bundlePath = [[bundlePath stringByAppendingPathComponent:@"Frameworks/App.framework/flutter_assets"] stringByAppendingPathComponent:localImagePath];
     
     UIImage *image = [[UIImage imageWithContentsOfFile:bundlePath] resizableImageWithCapInsets:UIEdgeInsetsMake(15,15,30,30) resizingMode:UIImageResizingModeStretch];
     if (image) {
@@ -340,6 +427,15 @@
                 didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
 {
     [[QYSDK sharedSDK] updateApnsToken:deviceToken];
+}
+-(void)setLanguage:(NSNumber *) language{
+    if ([language  isEqual: @1]){
+       [[QYSDK sharedSDK] setLanguage:QYLanguageChineseTraditional];
+   }else if ([language isEqual:@2]) {
+       [[QYSDK sharedSDK] setLanguage:QYLanguageEnglish];
+   }else{
+       [[QYSDK sharedSDK] setLanguage:QYLanguageChineseSimplified];
+   }
 }
 
 @end

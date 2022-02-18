@@ -6,6 +6,7 @@ import './qy_service_window_params.dart';
 import './qy_user_info_params.dart';
 
 typedef UnreadCountChangeListener(int unreadCount);
+enum QYLanguage { chineseSimplified, chineseTraditional, english }
 
 class QiYuMethodCallHandler {
   QiYuMethodCallHandler();
@@ -87,5 +88,9 @@ class QiYu {
 
   static Future<bool> cleanCache() async {
     return await _channel.invokeMethod('cleanCache', {});
+  }
+
+  static Future<bool> setLanguage(QYLanguage language) async {
+    return await _channel.invokeMethod('setLanguage', language.index);
   }
 }
